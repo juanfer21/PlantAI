@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://plantai-backend-6i04.onrender.com'
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: `${API_URL}/api`,
   headers: { 'Content-Type': 'application/json' }
 })
 
