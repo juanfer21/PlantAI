@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Environment variables (SENSIBLE - contains API keys)
+.env
+*.env
+.env.local
+.env.production
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database files
+*.session.sql
+*.db
+*.sqlite
+
+# Logs
+*.log

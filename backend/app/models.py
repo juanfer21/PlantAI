@@ -47,7 +47,14 @@ class Plant(db.Model):
     description: Mapped[str | None] = mapped_column(Text)
     photo_url: Mapped[str | None] = mapped_column(String(500))
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
+    location: Mapped[str | None] = mapped_column(String(200))
+    watering_frequency: Mapped[str | None] = mapped_column(String(100))
+    light_requirement: Mapped[str | None] = mapped_column(String(100))
+    health_score: Mapped[int | None] = mapped_column(Integer)
+    last_watered: Mapped[datetime | None] = mapped_column(DateTime)
+    watering_due: Mapped[bool] = mapped_column(Boolean, default=False)
     acquired_at: Mapped[datetime | None] = mapped_column(DateTime)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     owner: Mapped[User] = relationship(back_populates="plants")
@@ -64,6 +71,13 @@ class Plant(db.Model):
             "description": self.description,
             "photo_url": self.photo_url,
             "is_public": self.is_public,
+            "location": self.location,
+            "watering_frequency": self.watering_frequency,
+            "light_requirement": self.light_requirement,
+            "health_score": self.health_score,
+            "last_watered": self.last_watered.isoformat() if self.last_watered else None,
+            "watering_due": self.watering_due,
+            "added_at": self.added_at.isoformat() if self.added_at else None,
             "created_at": self.created_at.isoformat()
         }
 
@@ -72,15 +86,20 @@ class Diagnosis(db.Model):
     __tablename__ = "diagnoses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    plant_id: Mapped[int] = mapped_column(ForeignKey("plants.id"), nullable=False)
+    plant_id: Mapped[int | None] = mapped_column(ForeignKey("plants.id"), nullable=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    photo_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str | None] = mapped_column(String(50))
+    health_score: Mapped[int | None] = mapped_column(Integer)
     issues_found: Mapped[dict | None] = mapped_column(JSON)
     recommendations: Mapped[dict | None] = mapped_column(JSON)
     care_tips: Mapped[dict | None] = mapped_column(JSON)
     raw_ai_response: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    common_name: Mapped[str | None] = mapped_column(String(200))
+    scientific_name: Mapped[str | None] = mapped_column(String(200))
+    watering_frequency: Mapped[str | None] = mapped_column(String(100))
+    light_requirement: Mapped[str | None] = mapped_column(String(100))
 
     plant: Mapped[Plant] = relationship(back_populates="diagnoses")
 
@@ -90,10 +109,16 @@ class Diagnosis(db.Model):
             "plant_id": self.plant_id,
             "photo_url": self.photo_url,
             "status": self.status,
+            "health_score": self.health_score,
             "issues_found": self.issues_found,
             "recommendations": self.recommendations,
             "care_tips": self.care_tips,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
+            "common_name": self.common_name,
+            "scientific_name": self.scientific_name,
+            "watering_frequency": self.watering_frequency,
+            "light_requirement": self.light_requirement,
+            
         }
 
 
@@ -102,6 +127,7 @@ class CareLog(db.Model):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     plant_id: Mapped[int] = mapped_column(ForeignKey("plants.id"), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     action: Mapped[str | None] = mapped_column(String(50))
     notes: Mapped[str | None] = mapped_column(String(500))
     photo_url: Mapped[str | None] = mapped_column(String(500))
@@ -113,6 +139,7 @@ class CareLog(db.Model):
         return {
             "id": self.id,
             "plant_id": self.plant_id,
+            "user_id": self.user_id,
             "action": self.action,
             "notes": self.notes,
             "photo_url": self.photo_url,

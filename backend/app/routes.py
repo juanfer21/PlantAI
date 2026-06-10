@@ -149,12 +149,27 @@ def get_care_logs(plant_id):
 
 # ── DOCTOR MODE ───────────────────────────────────────────────
 
+@api.route("/doctor/remaining", methods=["GET"])
+@jwt_required()
+def remaining_scans():
+    identity = get_jwt_identity()
+    user = User.query.get(identity["id"])
+
+    if user.plan == "pro":
+        return jsonify({"remaining": None, "is_pro": True}), 200
+
+    uses_today = UsageLog.count_today(identity["id"], "doctor")
+    remaining = max(0, FREE_DAILY_LIMIT - uses_today)
+    return jsonify({"remaining": remaining, "limit": FREE_DAILY_LIMIT, "is_pro": False}), 200
+
+
 @api.route("/doctor/analyze", methods=["POST"])
 @jwt_required()
 def analyze():
     identity = get_jwt_identity()
     user = User.query.get(identity["id"])
 
+    # Check daily limit for free users
     if user.plan == "free":
         uses_today = UsageLog.count_today(identity["id"], "doctor")
         if uses_today >= FREE_DAILY_LIMIT:
@@ -169,26 +184,89 @@ def analyze():
     if not image_b64:
         return jsonify({"error": "Image is required"}), 400
 
-    result = diagnose_plant(
-        image_b64,
-        data.get("plant_name", "plant"),
-        data.get("location")
-    )
+    # Call AI service with error handling
+    try:
+        result = diagnose_plant(
+            image_b64,
+            data.get("plant_name", "plant"),
+            data.get("location")
+        )
+    except RuntimeError as e:
+        import traceback
+        print("=" * 60)
+        print("ERROR IN /doctor/analyze:")
+        print(f"Error code: {e}")
+        traceback.print_exc()
+        print("=" * 60)
+        error_code = str(e)
 
+        if error_code == "AI_NO_CREDITS":
+            return jsonify({
+                "error": "ai_unavailable",
+                "message": "AI service temporarily unavailable. Please try again later."
+            }), 503
+
+        if error_code == "AI_AUTH_FAILED":
+            return jsonify({
+                "error": "ai_config",
+                "message": "AI service is not properly configured. Contact support."
+            }), 503
+
+        if error_code == "AI_RATE_LIMIT":
+            return jsonify({
+                "error": "ai_busy",
+                "message": "AI service is busy. Please try again in a moment."
+            }), 503
+
+        if error_code == "AI_INVALID_RESPONSE":
+            return jsonify({
+                "error": "ai_response",
+                "message": "Could not understand the AI response. Please try a clearer photo."
+            }), 502
+
+        return jsonify({
+            "error": "ai_error",
+            "message": "Could not analyze the photo. Please try again."
+        }), 500
+
+    # Always log usage for daily limit tracking
+    db.session.add(UsageLog(user_id=identity["id"], action="doctor"))
+
+    # Always save diagnosis (with or without plant_id)
+    plant_id = data.get("plant_id")
     diagnosis = Diagnosis(
-        plant_id=data.get("plant_id"),
+        plant_id=plant_id if plant_id else None,
         user_id=identity["id"],
-        photo_url=data.get("photo_url", ""),
+        photo_url=data.get("photo_url"),
         status=result.get("status"),
+        health_score=result.get("health_score"),
+        common_name=result.get("common_name"),
+        scientific_name=result.get("scientific_name"),
+        watering_frequency=result.get("watering_frequency"),
+        light_requirement=result.get("light_requirement"),
         issues_found=result.get("issues_found"),
         recommendations=result.get("recommendations"),
         care_tips=result.get("care_tips"),
         raw_ai_response=str(result)
     )
     db.session.add(diagnosis)
-    db.session.add(UsageLog(user_id=identity["id"], action="doctor"))
+
+    # If linked to a plant, also update plant health and create care log
+    if plant_id:
+        plant = Plant.query.filter_by(id=plant_id, user_id=identity["id"]).first()
+        if plant:
+            plant.health_score = result.get("health_score", plant.health_score)
+            care_log = CareLog(
+                plant_id=plant.id,
+                user_id=identity["id"],
+                action="diagnosed",
+                notes=f"Health: {result.get('health_score', 0)}% · Status: {result.get('status', 'unknown')}"
+            )
+            db.session.add(care_log)
+
     db.session.commit()
 
+    # Calculate remaining uses for free users
     remaining_uses = None
     if user.plan == "free":
         remaining_uses = max(0, FREE_DAILY_LIMIT - UsageLog.count_today(identity["id"], "doctor"))
@@ -284,3 +362,77 @@ def public_profile(username):
         },
         "plants": [p.serialize() for p in public_plants],
     }), 200
+
+
+
+#-- pending --
+
+    # Get pending (unassigned) diagnoses
+@api.route("/doctor/pending", methods=["GET"])
+@jwt_required()
+def pending_diagnoses():
+    identity = get_jwt_identity()
+    diagnoses = Diagnosis.query.filter_by(
+        user_id=identity["id"],
+        plant_id=None
+    ).order_by(Diagnosis.created_at.desc()).all()
+    return jsonify({"diagnoses": [d.serialize() for d in diagnoses]}), 200
+
+
+# Assign a pending diagnosis to an existing plant
+@api.route("/doctor/diagnoses/<int:diagnosis_id>/assign", methods=["POST"])
+@jwt_required()
+def assign_diagnosis(diagnosis_id):
+    identity = get_jwt_identity()
+    data = request.get_json()
+    plant_id = data.get("plant_id")
+
+    if not plant_id:
+        return jsonify({"error": "plant_id is required"}), 400
+
+    diagnosis = Diagnosis.query.filter_by(
+        id=diagnosis_id, user_id=identity["id"]
+    ).first()
+    if not diagnosis:
+        return jsonify({"error": "Diagnosis not found"}), 404
+
+    plant = Plant.query.filter_by(
+        id=plant_id, user_id=identity["id"]
+    ).first()
+    if not plant:
+        return jsonify({"error": "Plant not found"}), 404
+
+    diagnosis.plant_id = plant_id
+    plant.health_score = diagnosis.health_score or plant.health_score
+
+    care_log = CareLog(
+        plant_id=plant.id,
+        user_id=identity["id"],
+        action="diagnosed",
+        notes=f"Health: {diagnosis.health_score or 0}% · Status: {diagnosis.status}",
+        created_at=diagnosis.created_at
+    )
+    db.session.add(care_log)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Diagnosis assigned to plant",
+        "diagnosis": diagnosis.serialize(),
+        "plant": plant.serialize()
+    }), 200
+
+
+# Discard (delete) a pending diagnosis
+@api.route("/doctor/diagnoses/<int:diagnosis_id>", methods=["DELETE"])
+@jwt_required()
+def delete_diagnosis(diagnosis_id):
+    identity = get_jwt_identity()
+    diagnosis = Diagnosis.query.filter_by(
+        id=diagnosis_id, user_id=identity["id"]
+    ).first()
+    if not diagnosis:
+        return jsonify({"error": "Diagnosis not found"}), 404
+
+    db.session.delete(diagnosis)
+    db.session.commit()
+    return jsonify({"message": "Diagnosis discarded"}), 200

@@ -354,6 +354,11 @@ img { max-width: 100%; display: block; }
 .animate-pulse { animation: pulse 2s infinite; }
 .animate-spin { animation: spin 1s linear infinite; }
 
+/* ── BOTTOM NAV MÓVIL ───────────────────────────── */
+.bottom-nav-mobile {
+  display: none;
+}
+
 /* ── RESPONSIVE ──────────────────────────────────── */
 
 /* Tablet (768px - 1024px) */
@@ -364,10 +369,14 @@ img { max-width: 100%; display: block; }
   .banner-title { font-size: 15px; }
   .chips-row { gap: 7px; }
   .recent-grid { grid-template-columns: 1fr 1fr; }
+  .bottom-nav-mobile { display: none !important; }
 }
 
 /* Móvil (< 768px) */
 @media (max-width: 767px) {
+    .bottom-nav-mobile {
+    display: flex !important;
+  }
   .app-layout {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
