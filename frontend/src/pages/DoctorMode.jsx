@@ -131,7 +131,7 @@ const handleSaveAsNew = () => {
 const handlePlantCreated = async (newPlant) => {
   setShowAddPlantModal(false)
   try {
-    await api.post(`/doctor/diagnoses/$${savedDiagnosis.id}/assign`, {
+    await api.post(`/doctor/diagnoses/${savedDiagnosis.id}/assign`, {
       plant_id: newPlant.id
     })
     toast.success(`${newPlant.nickname || newPlant.name} added with diagnosis! 🌿`)
