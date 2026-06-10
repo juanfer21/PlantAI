@@ -28,6 +28,11 @@ def create_app():
     from app.routes import api
     app.register_blueprint(api, url_prefix="/api")
 
+    # Auto-create tables if they don't exist (safe — won't drop or modify existing tables)
+    with app.app_context():
+        from app import models
+        db.create_all()
+
     @app.route("/api/health")
     def health():
         return {"status": "ok", "app": "PlantAI"}
