@@ -1,8 +1,20 @@
+const safeParse = (key) => {
+  const val = sessionStorage.getItem(key)
+  if (!val || val === "undefined" || val === "null") return null
+  try {
+    return JSON.parse(val)
+  } catch {
+    sessionStorage.removeItem(key)
+    return null
+  }
+}
+
 export const initialStore = () => {
+  const user = safeParse("user")
   return {
-    user: JSON.parse(sessionStorage.getItem("user")) || null,
+    user: user,
     token: sessionStorage.getItem("token") || null,
-    isPro: JSON.parse(sessionStorage.getItem("user"))?.plan === "pro" || false,
+    isPro: user?.plan === "pro" || false,
     plants: [],
     currentPlant: null,
     communityPosts: [],
