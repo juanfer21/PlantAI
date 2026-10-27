@@ -4,6 +4,10 @@ PlantAI is a full stack web app for plant lovers. Take a photo of a plant and AI
 
 I designed and built this project on my own, from the database to the user interface.
 
+**🌐 Live Demo:** [plantai-frontend.onrender.com](https://plantai-frontend.onrender.com/)
+
+> Hosted on Render's free plan, so the first load can take up to a minute while the server wakes up.
+
 ## Features
 
 - **Plant identification**: upload a photo and Claude AI identifies the plant and its scientific name
