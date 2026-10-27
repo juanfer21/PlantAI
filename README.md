@@ -1,119 +1,103 @@
 # 🌿 PlantAI
 
-Aplicación web para identificar plantas, diagnosticar problemas con IA y conectar con una comunidad de amantes de las plantas.
+PlantAI is a full stack web app for plant lovers. Take a photo of a plant and AI identifies it, checks its health, and tells you how to take care of it. You can keep track of your own garden and share your plants with a community.
 
-## Stack
+I designed and built this project on my own, from the database to the user interface.
 
-- **Frontend**: React 18 + Vite + React Router
-- **Backend**: Python / Flask + SQLAlchemy
-- **Base de datos**: PostgreSQL 15
-- **IA**: Anthropic Claude Vision API
-- **Autenticación**: JWT
-- **Fotos**: Cloudinary
+## Features
 
----
+- **Plant identification**: upload a photo and Claude AI identifies the plant and its scientific name
+- **Doctor Mode**: AI analyzes a photo of your plant, finds health problems, and suggests treatment, using your location for more accurate advice
+- **My Garden**: add, edit, and delete your plants, and see each plant's diagnosis history
+- **Care log**: record watering and other care for each plant
+- **Community feed**: share posts about your plants and like other users' posts
+- **User profiles**: public profiles with each user's plants
+- **Free and Pro plans**: free users get 2 AI scans per day, Pro users get unlimited scans
+- **Secure accounts**: register and log in with JWT, with private pages protected on the frontend and backend
 
-## Abrir en GitHub Codespace
+## Tech Stack
 
-1. Sube este proyecto a un repositorio de GitHub
-2. Click en **Code → Codespaces → Create codespace on main**
-3. Espera ~2 min mientras se configura automáticamente
-4. El script `.devcontainer/setup.sh` instala todo solo
+**Frontend:** React 18, Vite, React Router, Axios, CSS3
+**Backend:** Python, Flask, SQLAlchemy, Flask-Migrate, Flask-CORS
+**Database:** PostgreSQL
+**Auth:** JWT (Flask-JWT-Extended)
+**AI:** Anthropic Claude API with vision (image analysis)
+**Deployment:** Render
 
----
+## How It Works
 
-## Arrancar el proyecto
-
-Abre **dos terminales** en el Codespace:
-
-### Terminal 1 — Backend
-```bash
-cd backend
-cp .env.example .env
-# Edita .env y agrega tu ANTHROPIC_API_KEY
-flask run
-# Corre en http://localhost:5000
-```
-
-### Terminal 2 — Frontend
-```bash
-cd frontend
-npm run dev
-# Corre en http://localhost:5173
-```
-
----
-
-## Variables de entorno necesarias
-
-Edita `backend/.env`:
-
-| Variable | Descripción |
-|---|---|
-| `DATABASE_URL` | Ya configurada para Codespace |
-| `JWT_SECRET_KEY` | Cambia por una clave segura |
-| `ANTHROPIC_API_KEY` | Obtén en console.anthropic.com |
-| `CLOUDINARY_*` | Obtén en cloudinary.com (gratis) |
-
----
-
-## Estructura del proyecto
-
-```
-plantai/
-├── .devcontainer/
-│   ├── devcontainer.json     # Config del Codespace
-│   └── setup.sh              # Setup automático
-│
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py       # App factory Flask
-│   │   ├── models/           # Modelos PostgreSQL
-│   │   ├── routes/           # Endpoints API
-│   │   │   ├── auth.py       # Login / registro / JWT
-│   │   │   ├── plants.py     # CRUD de plantas
-│   │   │   ├── doctor.py     # Modo Doctor IA
-│   │   │   ├── community.py  # Feed comunidad
-│   │   │   └── users.py      # Perfiles
-│   │   └── services/
-│   │       └── ai_service.py # Integración Anthropic
-│   ├── requirements.txt
-│   ├── run.py
-│   └── .env.example
-│
-└── frontend/
-    ├── src/
-    │   ├── App.jsx            # Rutas principales
-    │   ├── context/
-    │   │   └── AuthContext.jsx  # JWT + estado global
-    │   ├── services/
-    │   │   └── api.js           # Cliente axios
-    │   ├── components/          # Componentes reutilizables
-    │   ├── pages/               # Pantallas
-    │   └── hooks/               # Custom hooks
-    ├── index.html
-    └── vite.config.js
-```
-
----
+1. The user logs in and the Flask backend returns a JWT token.
+2. The frontend saves the token in a global store (built with `useReducer`) and in `sessionStorage`, so the session stays active after a page refresh.
+3. An Axios interceptor adds the token to every request automatically, and logs the user out if the token expires.
+4. When the user uploads a plant photo, the image is compressed in the browser and sent to the backend.
+5. The backend sends the photo to Claude AI, which returns the plant's name, health status, and care tips as structured data.
+6. The result is saved in PostgreSQL and linked to the user's plant, so they can see its history over time.
 
 ## API Endpoints
 
-| Método | Ruta | Descripción |
+| Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Registro |
-| POST | `/api/auth/login` | Login → devuelve JWT |
-| GET | `/api/auth/me` | Usuario actual |
-| GET | `/api/plants/` | Mis plantas |
-| POST | `/api/plants/` | Agregar planta |
-| POST | `/api/doctor/analyze` | Modo Doctor (IA) |
-| GET | `/api/community/feed` | Feed comunidad |
-| POST | `/api/community/post` | Publicar en comunidad |
+| POST | `/api/auth/register` | Create an account |
+| POST | `/api/auth/login` | Log in and get a JWT token |
+| GET | `/api/auth/me` | Get the logged-in user |
+| GET / POST | `/api/plants` | Get or add plants |
+| GET / PUT / DELETE | `/api/plants/<id>` | Get, update, or delete a plant |
+| GET / POST | `/api/plants/<id>/care` | Get or add care logs |
+| POST | `/api/doctor/analyze` | Analyze a plant photo with AI |
+| GET | `/api/doctor/remaining` | Scans left today (free plan) |
+| GET | `/api/doctor/history/<plant_id>` | Diagnosis history for a plant |
+| GET | `/api/community/feed` | Community posts |
+| POST | `/api/community/post` | Create a post |
+| POST | `/api/community/post/<id>/like` | Like a post |
+| GET | `/api/users/<username>` | Public user profile |
+| PUT | `/api/users/profile` | Update your profile |
 
----
+## Project Structure
 
-## Deploy
+```
+PlantAI/
+├── backend/
+│   ├── app/
+│   │   ├── __init__.py    # Flask app factory
+│   │   ├── models.py      # User, Plant, Diagnosis, CareLog, CommunityPost
+│   │   ├── routes.py      # API endpoints
+│   │   └── services.py    # Claude AI integration
+│   ├── requirements.txt
+│   └── run.py
+│
+└── frontend/
+    └── src/
+        ├── store.js       # Global state (useReducer)
+        ├── hooks/         # useGlobalReducer
+        ├── services/      # Axios client with JWT interceptor
+        ├── components/    # Modals, layout, PrivateRoute
+        ├── pages/         # Home, MyGarden, PlantDetail, DoctorMode, Community, Profile
+        └── utils/         # Image compression helper
+```
 
-- **Frontend** → Vercel (conecta el repo, deploy automático)
-- **Backend** → Render.com (web service, Python)
-- **BD** → Neon.tech (PostgreSQL serverless, tier gratis)
+## Run It Locally
+
+You need Python 3.10+, Node 20+, and PostgreSQL.
+
+**Backend**
+```bash
+cd backend
+cp .env.example .env
+# Add your DATABASE_URL, JWT_SECRET_KEY, and ANTHROPIC_API_KEY to .env
+pip install -r requirements.txt
+python run.py
+# Runs on http://localhost:5000
+```
+
+**Frontend** (in a second terminal)
+```bash
+cd frontend
+npm install
+npm run dev
+# Runs on http://localhost:5173
+```
+
+## Author
+
+**Juan Fernando Ayala**, Full Stack Developer
+GitHub: [@juanfer21](https://github.com/juanfer21)
